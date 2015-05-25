@@ -9,7 +9,7 @@ VIGoR_Mac: Command line program package for Mac. This was compiled under OS X ve
 
 Source: C source files of the command line programs.
 
-R: R source package of VIGoR. Whereas installation of R source packages is easy on Linux and Mac, it is often problematic on Windows. I recommend the following procedure:
+R: R source package of VIGoR. Whereas installation of R source packages is easy on Linux and Mac, it is often problematic on Windows. I recommend the following procedure for the installation on Windows:
   1. Install Rtools from http://cran.r-project.org/bin/windows/Rtools/
   2. Install Rstudio from http://www.rstudio.com/
   3. Start up Rstudio and install the R source package (.tar.gz file) as a package archive file. The package compiled by Rstudio can be used from the standard R console.
