@@ -14,7 +14,7 @@ R: R source package of VIGoR. Installation of R source packages will be easy on 
   2. Install Rstudio from http://www.rstudio.com/
   3. Start up Rstudio and install the R source package (.tar.gz file) as a package archive file. The package compiled by Rstudio can be used from the standard R console.
 
-Copyright (C) 2015 Akio Onogi and Hiroyoshi Iwata
+Copyright (C) 2015 Akio Onogi and Hiroyoshi Iwata.
 Released under the MIT license.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
