@@ -1,7 +1,7 @@
 # VIGoR
 VIGoR (Variational Bayesian Inference for Genome-Wide Regression) conducts linear regression using variational Bayesian inference, particularly optimized for genome-wide association mapping and whole-genome prediction which use a number of SNPs as the explanatory variables. VIGoR provides seven regression models (Bayesian lasso, extended Bayesian lasso, BayesA, BayesB, BayesC, Bayesian ridge regression, and BLUP). This directory contains the R packages, pdf documents, and archives.
 
-VIGoR ver. 1.1.0 is now available. The updated version will be open at CRAN soon.
+VIGoR ver. 1.1.0 is also available at CRAN.
 This version enables to incorporate multiple regression methods (e.g., BayesC and Bayesian lasso) with different explanatory variables simultaneously in a single model.
 
 
