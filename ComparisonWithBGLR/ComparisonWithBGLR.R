@@ -373,48 +373,67 @@ for(i in 1:length(P1)){
 
 
 #Exp 2###########################################################################
+P1 <- c(500, 1500, 2500, 5000, 15000, 25000)
+P2 <- c(500, 1500, 2500, 5000, 15000, 25000)
+P3 <- c(500, 1500, 2500, 5000, 15000, 25000)
+P4 <- c(500, 1500, 2500, 5000, 15000, 25000)
+ 
 Nzero1 <- 1
 Nzero2 <- 0.001
+Nzero3 <- 0.001
+Nzero4 <- 0.001
 
 for(i in 1:length(P1)){
   
   p1 <- P1[i]
   p2 <- P2[i]
+  p3 <- P3[i]
+  p4 <- P4[i]
   
   for(sim in 1:20){
     
     X1 <- scale(matrix(sample(c(-1, 0, 1), 2 * N * p1, replace = TRUE, prob = c(0.25, 0.5, 0.25)), nr = 2 * N))
     X2 <- scale(matrix(rnorm(2 * N * p2), nr = 2 * N))
+    X3 <- scale(matrix(rnorm(2 * N * p3), nr = 2 * N))
+    X4 <- scale(matrix(rnorm(2 * N * p4), nr = 2 * N))
     
-    B1 <- matrix(c(rnorm(p1 * Nzero1), rep(0, p1 - p1 * Nzero1)), nc = 1)
-    B2 <- matrix(c(rnorm(p2 * Nzero2), rep(0, p2 - p2 * Nzero2)), nc = 1)
+    B1 <- matrix(c(rnorm(ceiling(p1 * Nzero1)), rep(0, p1 - ceiling(p1 * Nzero1))), nc = 1)
+    B2 <- matrix(c(rnorm(ceiling(p2 * Nzero2)), rep(0, p2 - ceiling(p2 * Nzero2))), nc = 1)
+    B3 <- matrix(c(rnorm(ceiling(p3 * Nzero3)), rep(0, p3 - ceiling(p3 * Nzero3))), nc = 1)
+    B4 <- matrix(c(rnorm(ceiling(p4 * Nzero4)), rep(0, p4 - ceiling(p4 * Nzero4))), nc = 1)
     
     U1 <- scale(as.numeric(X1 %*% B1))
     U2 <- scale(as.numeric(X2 %*% B2))
-    U <- U1 + U2
+    U3 <- scale(as.numeric(X3 %*% B3))
+    U4 <- scale(as.numeric(X4 %*% B4))
+    U <- U1 + U2 + U3 + U4
     E <- rnorm(N, 0, sqrt(var(U) * Noise))
     Y <- U + E
     
-    write.csv(cbind(X1, X2), paste(sim, "/Exp2_", i, "_", sim, "_X.csv", sep = ""), row.names = FALSE)
-    write.csv(cbind(B1, B2), paste(sim, "/Exp2_", i, "_", sim, "_B.csv", sep = ""), row.names = FALSE)
+    write.csv(cbind(X1, X2, X3, X4), paste(sim, "/Exp2_", i, "_", sim, "_X.csv", sep = ""), row.names = FALSE)
+    write.csv(cbind(B1, B2, B3, B4), paste(sim, "/Exp2_", i, "_", sim, "_B.csv", sep = ""), row.names = FALSE)
     write.csv(cbind(Y, U), paste(sim, "/Exp2_", i, "_", sim, "_Y.csv", sep = ""), row.names = FALSE)
   }
 }
+rm(X1,X2,X3,X4,B1,B2,B3,B4,U1,U2,U3,U4,U,E,Y)
+
 
 Stats.Exp2.BRRBayesB <- NULL
 cl <- makeCluster(5, type = "SOCK")
 clusterExport(cl, c("BGLR", "vigor", "hyperpara", "predict_vigor", "prediction", "performance",
-                    "N", "Nzero1", "Nzero2", "Noise"))
+                    "N", "Nzero1", "Nzero2", "Nzero3", "Nzero4", "Noise"))
 
-for(i in 1:length(P1)){
+for(i in 5:6){
   
   p1 <- P1[i]
   p2 <- P2[i]
-  clusterExport(cl, c("p1", "p2", "i"))
+  p3 <- P3[i]
+  p4 <- P4[i]
+  clusterExport(cl, c("p1", "p2", "p3", "p4", "i"))
   
   for(block in 1:4){
     
-    cat(i, p1, p2, block, "\n")
+    cat(i, p1, p2, p3, p4, block, "\n")
     
     Data.list <- as.list(numeric(5))
     for(j in 1:5){
@@ -426,6 +445,8 @@ for(i in 1:length(P1)){
       Data.list[[j]] <- list(d = d,
                              X1 = X[, 1:p1],
                              X2 = X[, (p1 + 1):(p1 + p2)],
+                             X3 = X[, (p1 + p2 + 1):(p1 + p2 + p3)],
+                             X4 = X[, (p1 + p2 + p3 + 1):(p1 + p2 + p3 + p4)],
                              B1 = B[, 1],
                              U = Y[, 2],
                              Y = Y[, 1])
@@ -435,10 +456,13 @@ for(i in 1:length(P1)){
                         Data.list,
                         function(Data){
                           
-                          Result.sim2 <- numeric(39)
+                          #BRR + BayesB
+                          Result.sim2 <- numeric(48)
                           
                           H1 <- hyperpara(Data$X1[1:N, ], 1.0, "BRR", Nzero1, "Var")
                           H2 <- hyperpara(Data$X2[1:N, ], 1.0, "BayesB", Nzero2, "Var")
+                          H3 <- hyperpara(Data$X3[1:N, ], 1.0, "BayesB", Nzero3, "Var")
+                          H4 <- hyperpara(Data$X4[1:N, ], 1.0, "BayesB", Nzero4, "Var")
                           
                           ##BGLR
                           ETA <- list(list(model = "BRR",
@@ -446,9 +470,15 @@ for(i in 1:length(P1)){
                                            df0 = H1[1], S0 = H1[2]),
                                       list(model = "BayesB",
                                            X = Data$X2[1:N, ],
-                                           df0 = H2[1], S0 = H2[2], probIn = H2[3], counts = 1e+6))
+                                           df0 = H2[1], S0 = H2[2], probIn = H2[3], counts = 1e+6),
+                                      list(model = "BayesB",
+                                           X = Data$X3[1:N, ],
+                                           df0 = H3[1], S0 = H3[2], probIn = H3[3], counts = 1e+6),
+                                      list(model = "BayesB",
+                                           X = Data$X4[1:N, ],
+                                           df0 = H4[1], S0 = H4[2], probIn = H4[3], counts = 1e+6))
                           
-                          ###1500
+                          ###500 and 1500
                           start <- proc.time()[3]
                           Result <- BGLR(y = Data$Y[1:N], ETA = ETA, verbose = FALSE, burnIn = 500, nIter = 1500, thin = 5,
                                          saveAt = paste(Data$d, "/", sep = ""))
@@ -456,126 +486,156 @@ for(i in 1:length(P1)){
                           
                           Result.sim2[1] <- end - start
                           
-                          ####Estimation accuracy
                           Result.sim2[2] <- cor(Result$ETA[[1]]$b, as.numeric(Data$B1))
                           
-                          ####AUC
-                          ROCdata <- cbind(Result$ETA[[2]]$d, c(rep(1, p2*Nzero2), rep(0, p2-p2*Nzero2)))
+                          ROCdata <- cbind(Result$ETA[[2]]$d, c(rep(1, ceiling(p2*Nzero2)), rep(0, p2-ceiling(p2*Nzero2))))
                           ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
                           Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
                           AUC.temp <- performance(Pred, "auc")
                           Result.sim2[3] <- as.numeric(AUC.temp@y.values)
                           
-                          ####Rhat
+                          ROCdata <- cbind(Result$ETA[[3]]$d, c(rep(1, ceiling(p3*Nzero3)), rep(0, p3-ceiling(p3*Nzero3))))
+                          ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
+                          Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
+                          AUC.temp <- performance(Pred, "auc")
+                          Result.sim2[4] <- as.numeric(AUC.temp@y.values)
+                          
+                          ROCdata <- cbind(Result$ETA[[4]]$d, c(rep(1, ceiling(p4*Nzero4)), rep(0, p4-ceiling(p4*Nzero4))))
+                          ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
+                          Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
+                          AUC.temp <- performance(Pred, "auc")
+                          Result.sim2[5] <- as.numeric(AUC.temp@y.values)
+                          
                           s <- scan(paste(Data$d, "varE.dat", sep = "/"))
                           s <- matrix(s[(length(s)-199):length(s)], nc=2)
                           B <- sum((apply(s, 2, mean) - mean(s))^2) * nrow(s) / (2 - 1)
                           W <- sum((t(s) - apply(s, 2, mean))^2)/((nrow(s) - 1) * 2)
-                          Result.sim2[4] <- sqrt((W * (nrow(s) - 1)/nrow(s) + B / nrow(s)) / W)
+                          Result.sim2[6] <- sqrt((W * (nrow(s) - 1)/nrow(s) + B / nrow(s)) / W)
                           
                           s <- read.table(paste(Data$d, "ETA_1_varB.dat", sep = "/"))[, 1]
-                          s <- matrix(s[(length(s)-199):length(s)], nc=2)
-                          B <- sum((apply(s, 2, mean) - mean(s))^2) * nrow(s) / (2 - 1)
-                          W <- sum((t(s) - apply(s, 2, mean))^2)/((nrow(s) - 1) * 2)
-                          Result.sim2[5] <- sqrt((W * (nrow(s) - 1)/nrow(s) + B / nrow(s)) / W)
-                          
-                          s <- scan(paste(Data$d, "mu.dat", sep = "/"))
                           s <- matrix(s[(length(s)-199):length(s)], nc=2)
                           B <- sum((apply(s, 2, mean) - mean(s))^2) * nrow(s) / (2 - 1)
                           W <- sum((t(s) - apply(s, 2, mean))^2)/((nrow(s) - 1) * 2)
                           Result.sim2[7] <- sqrt((W * (nrow(s) - 1)/nrow(s) + B / nrow(s)) / W)
                           
-                          ####Prediction accuracy
+                          s <- scan(paste(Data$d, "mu.dat", sep = "/"))
+                          s <- matrix(s[(length(s)-199):length(s)], nc=2)
+                          B <- sum((apply(s, 2, mean) - mean(s))^2) * nrow(s) / (2 - 1)
+                          W <- sum((t(s) - apply(s, 2, mean))^2)/((nrow(s) - 1) * 2)
+                          Result.sim2[8] <- sqrt((W * (nrow(s) - 1)/nrow(s) + B / nrow(s)) / W)
+                          
                           temp <- Result$mu + 
                             colSums(t(Data$X1[(N + 1):(2 * N), ]) * Result$ETA[[1]]$b) + 
-                            colSums(t(Data$X2[(N + 1):(2 * N), ]) * Result$ETA[[2]]$b)
-                          Result.sim2[8] <- cor(Data$U[(N + 1):(2 * N)], temp)
+                            colSums(t(Data$X2[(N + 1):(2 * N), ]) * Result$ETA[[2]]$b) +
+                            colSums(t(Data$X3[(N + 1):(2 * N), ]) * Result$ETA[[3]]$b) +
+                            colSums(t(Data$X4[(N + 1):(2 * N), ]) * Result$ETA[[4]]$b)
+                          Result.sim2[9] <- cor(Data$U[(N + 1):(2 * N)], temp)
                           
-                          ###15000
+                          ###5000 and 15000
                           start <- proc.time()[3]
                           Result <- BGLR(y = Data$Y[1:N], ETA = ETA, verbose = FALSE, burnIn = 5000, nIter = 15000, thin = 10,
                                          saveAt = paste(Data$d, "/", sep = ""))
                           end <- proc.time()[3]
                           
-                          Result.sim2[9] <- end - start
+                          Result.sim2[10] <- end - start
                           
-                          ####Estimation accuracy
-                          Result.sim2[10] <- cor(Result$ETA[[1]]$b, as.numeric(Data$B1))
+                          Result.sim2[11] <- cor(Result$ETA[[1]]$b, as.numeric(Data$B1))
                           
-                          ####AUC
-                          ROCdata <- cbind(Result$ETA[[2]]$d, c(rep(1, p2*Nzero2), rep(0, p2-p2*Nzero2)))
+                          ROCdata <- cbind(Result$ETA[[2]]$d, c(rep(1, ceiling(p2*Nzero2)), rep(0, p2-ceiling(p2*Nzero2))))
                           ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
                           Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
                           AUC.temp <- performance(Pred, "auc")
-                          Result.sim2[11] <- as.numeric(AUC.temp@y.values)
+                          Result.sim2[12] <- as.numeric(AUC.temp@y.values)
                           
-                          ####Rhat
+                          ROCdata <- cbind(Result$ETA[[3]]$d, c(rep(1, ceiling(p3*Nzero3)), rep(0, p3-ceiling(p3*Nzero3))))
+                          ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
+                          Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
+                          AUC.temp <- performance(Pred, "auc")
+                          Result.sim2[13] <- as.numeric(AUC.temp@y.values)
+                          
+                          ROCdata <- cbind(Result$ETA[[4]]$d, c(rep(1, ceiling(p4*Nzero4)), rep(0, p4-ceiling(p4*Nzero4))))
+                          ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
+                          Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
+                          AUC.temp <- performance(Pred, "auc")
+                          Result.sim2[14] <- as.numeric(AUC.temp@y.values)
+                          
                           s <- scan(paste(Data$d, "varE.dat", sep = "/"))
-                          s <- matrix(s[(length(s)-999):length(s)], nc=2)
-                          B <- sum((apply(s, 2, mean) - mean(s))^2) * nrow(s) / (2 - 1)
-                          W <- sum((t(s) - apply(s, 2, mean))^2)/((nrow(s) - 1) * 2)
-                          Result.sim2[12] <- sqrt((W * (nrow(s) - 1)/nrow(s) + B / nrow(s)) / W)
-                          
-                          s <- read.table(paste(Data$d, "ETA_1_varB.dat", sep = "/"))[, 1]
-                          s <- matrix(s[(length(s)-999):length(s)], nc=2)
-                          B <- sum((apply(s, 2, mean) - mean(s))^2) * nrow(s) / (2 - 1)
-                          W <- sum((t(s) - apply(s, 2, mean))^2)/((nrow(s) - 1) * 2)
-                          Result.sim2[13] <- sqrt((W * (nrow(s) - 1)/nrow(s) + B / nrow(s)) / W)
-                          
-                          s <- scan(paste(Data$d, "mu.dat", sep = "/"))
                           s <- matrix(s[(length(s)-999):length(s)], nc=2)
                           B <- sum((apply(s, 2, mean) - mean(s))^2) * nrow(s) / (2 - 1)
                           W <- sum((t(s) - apply(s, 2, mean))^2)/((nrow(s) - 1) * 2)
                           Result.sim2[15] <- sqrt((W * (nrow(s) - 1)/nrow(s) + B / nrow(s)) / W)
                           
-                          ####Prediction accuracy
-                          temp <- Result$mu + 
-                            colSums(t(Data$X1[(N + 1):(2 * N), ]) * Result$ETA[[1]]$b) + 
-                            colSums(t(Data$X2[(N + 1):(2 * N), ]) * Result$ETA[[2]]$b)
-                          Result.sim2[16] <- cor(Data$U[(N + 1):(2 * N)], temp)
-                          
-                          ###30000
-                          start <- proc.time()[3]
-                          Result <- BGLR(y = Data$Y[1:N], ETA = ETA, verbose = FALSE, burnIn = 20000, nIter = 30000, thin = 10,
-                                         saveAt = paste(Data$d, "/", sep = ""))
-                          end <- proc.time()[3]
-                          
-                          Result.sim2[17] <- end - start
-                          
-                          ####Estimation accuracy
-                          Result.sim2[18] <- cor(Result$ETA[[1]]$b, as.numeric(Data$B1))
-                          
-                          ####AUC
-                          ROCdata <- cbind(Result$ETA[[2]]$d, c(rep(1, p2*Nzero2), rep(0, p2-p2*Nzero2)))
-                          ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
-                          Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
-                          AUC.temp <- performance(Pred, "auc")
-                          Result.sim2[19] <- as.numeric(AUC.temp@y.values)
-                          
-                          ####Rhat
-                          s <- scan(paste(Data$d, "varE.dat", sep = "/"))
-                          s <- matrix(s[(length(s)-999):length(s)], nc=2)
-                          B <- sum((apply(s, 2, mean) - mean(s))^2) * nrow(s) / (2 - 1)
-                          W <- sum((t(s) - apply(s, 2, mean))^2)/((nrow(s) - 1) * 2)
-                          Result.sim2[20] <- sqrt((W * (nrow(s) - 1)/nrow(s) + B / nrow(s)) / W)
-                          
                           s <- read.table(paste(Data$d, "ETA_1_varB.dat", sep = "/"))[, 1]
                           s <- matrix(s[(length(s)-999):length(s)], nc=2)
                           B <- sum((apply(s, 2, mean) - mean(s))^2) * nrow(s) / (2 - 1)
                           W <- sum((t(s) - apply(s, 2, mean))^2)/((nrow(s) - 1) * 2)
-                          Result.sim2[21] <- sqrt((W * (nrow(s) - 1)/nrow(s) + B / nrow(s)) / W)
+                          Result.sim2[16] <- sqrt((W * (nrow(s) - 1)/nrow(s) + B / nrow(s)) / W)
                           
                           s <- scan(paste(Data$d, "mu.dat", sep = "/"))
                           s <- matrix(s[(length(s)-999):length(s)], nc=2)
                           B <- sum((apply(s, 2, mean) - mean(s))^2) * nrow(s) / (2 - 1)
                           W <- sum((t(s) - apply(s, 2, mean))^2)/((nrow(s) - 1) * 2)
-                          Result.sim2[23] <- sqrt((W * (nrow(s) - 1)/nrow(s) + B / nrow(s)) / W)
+                          Result.sim2[17] <- sqrt((W * (nrow(s) - 1)/nrow(s) + B / nrow(s)) / W)
                           
-                          ####Prediction accuracy
                           temp <- Result$mu + 
                             colSums(t(Data$X1[(N + 1):(2 * N), ]) * Result$ETA[[1]]$b) + 
-                            colSums(t(Data$X2[(N + 1):(2 * N), ]) * Result$ETA[[2]]$b)
-                          Result.sim2[24] <- cor(Data$U[(N + 1):(2 * N)], temp)
+                            colSums(t(Data$X2[(N + 1):(2 * N), ]) * Result$ETA[[2]]$b) +
+                            colSums(t(Data$X3[(N + 1):(2 * N), ]) * Result$ETA[[3]]$b) +
+                            colSums(t(Data$X4[(N + 1):(2 * N), ]) * Result$ETA[[4]]$b)
+                          Result.sim2[18] <- cor(Data$U[(N + 1):(2 * N)], temp)
+                          
+                          ###20000 and 30000
+                          start <- proc.time()[3]
+                          Result <- BGLR(y = Data$Y[1:N], ETA = ETA, verbose = FALSE, burnIn = 20000, nIter = 30000, thin = 10,
+                                         saveAt = paste(Data$d, "/", sep = ""))
+                          end <- proc.time()[3]
+                          
+                          Result.sim2[19] <- end - start
+                          
+                          Result.sim2[20] <- cor(Result$ETA[[1]]$b, as.numeric(Data$B1))
+                          
+                          ROCdata <- cbind(Result$ETA[[2]]$d, c(rep(1, ceiling(p2*Nzero2)), rep(0, p2-ceiling(p2*Nzero2))))
+                          ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
+                          Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
+                          AUC.temp <- performance(Pred, "auc")
+                          Result.sim2[21] <- as.numeric(AUC.temp@y.values)
+                          
+                          ROCdata <- cbind(Result$ETA[[3]]$d, c(rep(1, ceiling(p3*Nzero3)), rep(0, p3-ceiling(p3*Nzero3))))
+                          ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
+                          Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
+                          AUC.temp <- performance(Pred, "auc")
+                          Result.sim2[22] <- as.numeric(AUC.temp@y.values)
+                          
+                          ROCdata <- cbind(Result$ETA[[4]]$d, c(rep(1, ceiling(p4*Nzero4)), rep(0, p4-ceiling(p4*Nzero4))))
+                          ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
+                          Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
+                          AUC.temp <- performance(Pred, "auc")
+                          Result.sim2[23] <- as.numeric(AUC.temp@y.values)
+                          
+                          s <- scan(paste(Data$d, "varE.dat", sep = "/"))
+                          s <- matrix(s[(length(s)-999):length(s)], nc=2)
+                          B <- sum((apply(s, 2, mean) - mean(s))^2) * nrow(s) / (2 - 1)
+                          W <- sum((t(s) - apply(s, 2, mean))^2)/((nrow(s) - 1) * 2)
+                          Result.sim2[24] <- sqrt((W * (nrow(s) - 1)/nrow(s) + B / nrow(s)) / W)
+                          
+                          s <- read.table(paste(Data$d, "ETA_1_varB.dat", sep = "/"))[, 1]
+                          s <- matrix(s[(length(s)-999):length(s)], nc=2)
+                          B <- sum((apply(s, 2, mean) - mean(s))^2) * nrow(s) / (2 - 1)
+                          W <- sum((t(s) - apply(s, 2, mean))^2)/((nrow(s) - 1) * 2)
+                          Result.sim2[25] <- sqrt((W * (nrow(s) - 1)/nrow(s) + B / nrow(s)) / W)
+                          
+                          s <- scan(paste(Data$d, "mu.dat", sep = "/"))
+                          s <- matrix(s[(length(s)-999):length(s)], nc=2)
+                          B <- sum((apply(s, 2, mean) - mean(s))^2) * nrow(s) / (2 - 1)
+                          W <- sum((t(s) - apply(s, 2, mean))^2)/((nrow(s) - 1) * 2)
+                          Result.sim2[26] <- sqrt((W * (nrow(s) - 1)/nrow(s) + B / nrow(s)) / W)
+                          
+                          temp <- Result$mu + 
+                            colSums(t(Data$X1[(N + 1):(2 * N), ]) * Result$ETA[[1]]$b) + 
+                            colSums(t(Data$X2[(N + 1):(2 * N), ]) * Result$ETA[[2]]$b) +
+                            colSums(t(Data$X3[(N + 1):(2 * N), ]) * Result$ETA[[3]]$b) +
+                            colSums(t(Data$X4[(N + 1):(2 * N), ]) * Result$ETA[[4]]$b)
+                          Result.sim2[27] <- cor(Data$U[(N + 1):(2 * N)], temp)
                           
                           ##VIGoR
                           ETA <- list(list(model = "BRR",
@@ -583,99 +643,143 @@ for(i in 1:length(P1)){
                                            H = H1),
                                       list(model = "BayesB",
                                            X = Data$X2[1:N, ],
-                                           H = H2))
-
+                                           H = H2),
+                                      list(model = "BayesB",
+                                           X = Data$X3[1:N, ],
+                                           H = H3),
+                                      list(model = "BayesB",
+                                           X = Data$X4[1:N, ],
+                                           H = H4))
+                          
                           ###1e-4
                           start <- proc.time()[3]
                           Result <- vigor(Data$Y[1:N], ETA, Verbose = FALSE, RandomIni = TRUE, Thresholdvalue = 1e-4, Maxiteration = 10000)
                           end <- proc.time()[3]
                           
-                          Result.sim2[25] <- end - start
-                          Result.sim2[26] <- length(Result$ResidualVar)
+                          Result.sim2[28] <- end - start
+                          Result.sim2[29] <- length(Result$ResidualVar)
                           
-                          ####Estimation accuracy
-                          Result.sim2[27] <- cor(Result$ETA[[1]]$Beta, as.numeric(Data$B1))
+                          Result.sim2[30] <- cor(Result$ETA[[1]]$Beta, as.numeric(Data$B1))
                           
-                          ####AUC
-                          ROCdata <- cbind(Result$ETA[[2]]$Rho, c(rep(1, p2*Nzero2), rep(0, p2-p2*Nzero2)))
+                          ROCdata <- cbind(Result$ETA[[2]]$Rho, c(rep(1, ceiling(p2*Nzero2)), rep(0, p2-ceiling(p2*Nzero2))))
                           ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
                           Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
                           AUC.temp <- performance(Pred, "auc")
-                          Result.sim2[28] <- as.numeric(AUC.temp@y.values)
+                          Result.sim2[31] <- as.numeric(AUC.temp@y.values)
                           
-                          ####Prediction accuracy
-                          temp <- predict_vigor(Result, list(Data$X1[(N + 1):(2 * N), ], Data$X2[(N + 1):(2 * N), ]))
-                          Result.sim2[29] <- cor(Data$U[(N + 1):(2 * N)], temp)
+                          ROCdata <- cbind(Result$ETA[[3]]$Rho, c(rep(1, ceiling(p3*Nzero3)), rep(0, p3-ceiling(p3*Nzero3))))
+                          ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
+                          Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
+                          AUC.temp <- performance(Pred, "auc")
+                          Result.sim2[32] <- as.numeric(AUC.temp@y.values)
+                          
+                          ROCdata <- cbind(Result$ETA[[4]]$Rho, c(rep(1, ceiling(p4*Nzero4)), rep(0, p4-ceiling(p4*Nzero4))))
+                          ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
+                          Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
+                          AUC.temp <- performance(Pred, "auc")
+                          Result.sim2[33] <- as.numeric(AUC.temp@y.values)
+                          
+                          temp <- predict_vigor(Result, 
+                                                list(Data$X1[(N + 1):(2 * N), ],
+                                                     Data$X2[(N + 1):(2 * N), ],
+                                                     Data$X3[(N + 1):(2 * N), ],
+                                                     Data$X4[(N + 1):(2 * N), ]))
+                          Result.sim2[34] <- cor(Data$U[(N + 1):(2 * N)], temp)
                           
                           ###1e-5
                           start <- proc.time()[3]
                           Result <- vigor(Data$Y[1:N], ETA, Verbose = FALSE, RandomIni = TRUE, Thresholdvalue = 1e-5, Maxiteration = 10000)
                           end <- proc.time()[3]
                           
-                          Result.sim2[30] <- end - start
-                          Result.sim2[31] <- length(Result$ResidualVar)
+                          Result.sim2[35] <- end - start
+                          Result.sim2[36] <- length(Result$ResidualVar)
                           
-                          ####Estimation accuracy
-                          Result.sim2[32] <- cor(Result$ETA[[1]]$Beta, as.numeric(Data$B1))
+                          Result.sim2[37] <- cor(Result$ETA[[1]]$Beta, as.numeric(Data$B1))
                           
-                          ####AUC
-                          ROCdata <- cbind(Result$ETA[[2]]$Rho, c(rep(1, p2*Nzero2), rep(0, p2-p2*Nzero2)))
+                          ROCdata <- cbind(Result$ETA[[2]]$Rho, c(rep(1, ceiling(p2*Nzero2)), rep(0, p2-ceiling(p2*Nzero2))))
                           ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
                           Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
                           AUC.temp <- performance(Pred, "auc")
-                          Result.sim2[33] <- as.numeric(AUC.temp@y.values)
+                          Result.sim2[38] <- as.numeric(AUC.temp@y.values)
                           
-                          ####Prediction accuracy
-                          temp <- predict_vigor(Result, list(Data$X1[(N + 1):(2 * N), ], Data$X2[(N + 1):(2 * N), ]))
-                          Result.sim2[34] <- cor(Data$U[(N + 1):(2 * N)], temp)
+                          ROCdata <- cbind(Result$ETA[[3]]$Rho, c(rep(1, ceiling(p3*Nzero3)), rep(0, p3-ceiling(p3*Nzero3))))
+                          ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
+                          Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
+                          AUC.temp <- performance(Pred, "auc")
+                          Result.sim2[39] <- as.numeric(AUC.temp@y.values)
+                          
+                          ROCdata <- cbind(Result$ETA[[4]]$Rho, c(rep(1, ceiling(p4*Nzero4)), rep(0, p4-ceiling(p4*Nzero4))))
+                          ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
+                          Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
+                          AUC.temp <- performance(Pred, "auc")
+                          Result.sim2[40] <- as.numeric(AUC.temp@y.values)
+                          
+                          temp <- predict_vigor(Result, 
+                                                list(Data$X1[(N + 1):(2 * N), ], 
+                                                     Data$X2[(N + 1):(2 * N), ],
+                                                     Data$X3[(N + 1):(2 * N), ],
+                                                     Data$X4[(N + 1):(2 * N), ]))
+                          Result.sim2[41] <- cor(Data$U[(N + 1):(2 * N)], temp)
                           
                           ###1e-6
                           start <- proc.time()[3]
                           Result <- vigor(Data$Y[1:N], ETA, Verbose = FALSE, RandomIni = TRUE, Thresholdvalue = 1e-6, Maxiteration = 10000)
                           end <- proc.time()[3]
                           
-                          Result.sim2[35] <- end - start
-                          Result.sim2[36] <- length(Result$ResidualVar)
+                          Result.sim2[42] <- end - start
+                          Result.sim2[43] <- length(Result$ResidualVar)
                           
-                          ####Estimation accuracy
-                          Result.sim2[37] <- cor(Result$ETA[[1]]$Beta, as.numeric(Data$B1))
+                          Result.sim2[44] <- cor(Result$ETA[[1]]$Beta, as.numeric(Data$B1))
                           
-                          ####AUC
-                          ROCdata <- cbind(Result$ETA[[2]]$Rho, c(rep(1, p2*Nzero2), rep(0, p2-p2*Nzero2)))
+                          ROCdata <- cbind(Result$ETA[[2]]$Rho, c(rep(1, ceiling(p2*Nzero2)), rep(0, p2-ceiling(p2*Nzero2))))
                           ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
                           Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
                           AUC.temp <- performance(Pred, "auc")
-                          Result.sim2[38] <- as.numeric(AUC.temp@y.values)
+                          Result.sim2[45] <- as.numeric(AUC.temp@y.values)
                           
-                          ####Prediction accuracy
-                          temp <- predict_vigor(Result, list(Data$X1[(N + 1):(2 * N), ], Data$X2[(N + 1):(2 * N), ]))
-                          Result.sim2[39] <- cor(Data$U[(N + 1):(2 * N)], temp)
+                          ROCdata <- cbind(Result$ETA[[3]]$Rho, c(rep(1, ceiling(p3*Nzero3)), rep(0, p3-ceiling(p3*Nzero3))))
+                          ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
+                          Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
+                          AUC.temp <- performance(Pred, "auc")
+                          Result.sim2[46] <- as.numeric(AUC.temp@y.values)
+                          
+                          ROCdata <- cbind(Result$ETA[[4]]$Rho, c(rep(1, ceiling(p4*Nzero4)), rep(0, p4-ceiling(p4*Nzero4))))
+                          ROCdata <- ROCdata[order(ROCdata[, 1], decreasing = TRUE), ]
+                          Pred <- prediction(ROCdata[, 1], ROCdata[, 2])
+                          AUC.temp <- performance(Pred, "auc")
+                          Result.sim2[47] <- as.numeric(AUC.temp@y.values)
+                          
+                          temp <- predict_vigor(Result, 
+                                                list(Data$X1[(N + 1):(2 * N), ], 
+                                                     Data$X2[(N + 1):(2 * N), ],
+                                                     Data$X3[(N + 1):(2 * N), ],
+                                                     Data$X4[(N + 1):(2 * N), ]))
+                          Result.sim2[48] <- cor(Data$U[(N + 1):(2 * N)], temp)
                           
                           Result.sim2
                         }#function
     )#parLapply
     
-    temp <- matrix(unlist(Result),nr=39)
+    temp <- matrix(unlist(Result), nr = 48)
     Stats.Exp2.BRRBayesB <- rbind(Stats.Exp2.BRRBayesB, temp)
-    
   }#block
+
 }#i
 stopCluster(cl)
 
-#See the averages
 for(i in 1:length(P1)){
   
-  temp <- Stats.Exp2.BRRBayesB[((i - 1) * 39 * 4 + 1):(i * 39 * 4),]
-  temp <- apply(matrix(as.numeric(temp), nr = 39), 1, mean)
-  
+  temp <- Stats.Exp2.BRRBayesB[((i - 1) * 48 * 4 + 1):(i * 48 * 4),]
+  temp <- apply(matrix(as.numeric(temp), nr = 48), 1, mean)
+
   cat("#BGLR","\n")
-  cat("#", P1[i] * 2, temp[1:8], "\n")
-  cat("#", P1[i] * 2, temp[9:16], "\n")
-  cat("#", P1[i] * 2, temp[17:24], "\n")
-  cat("#VIGoR","\n")  
-  cat("#", P1[i] * 2, temp[25:29], "\n")
-  cat("#", P1[i] * 2, temp[30:34], "\n")
-  cat("#", P1[i] * 2, temp[35:39], "\n\n")
+  cat("#", P1[i] * 4, temp[1:9], "\n")
+  cat("#", P1[i] * 4, temp[10:18], "\n")
+  cat("#", P1[i] * 4, temp[19:27], "\n")
+  cat("#VIGoR","\n")
+  cat("#", P1[i] * 4, temp[28:34], "\n")
+  cat("#", P1[i] * 4, temp[35:41], "\n")
+  cat("#", P1[i] * 4, temp[42:48], "\n")
 }
 
 
