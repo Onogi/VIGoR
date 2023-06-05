@@ -1,0 +1,5 @@
+useDynLib(VIGoR,.registration=TRUE)
+export(vigor)
+export(hyperpara)
+export(predict_vigor)
+importFrom("stats", "model.matrix", "var", "cor", "sd")
